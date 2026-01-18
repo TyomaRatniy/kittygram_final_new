@@ -13,7 +13,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'SECRET_KEY')
 
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1 localhost').split()
+ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -62,11 +62,11 @@ WSGI_APPLICATION = 'kittygram_backend.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("POSTGRES_DB", "django"),
-        "USER": os.getenv("POSTGRES_USER", "django"),
-        "PASSWORD": os.getenv("POSTGRES_PASSWORD", ""),
-        "HOST": os.getenv("DB_HOST", ""),
-        "PORT": os.getenv("DB_PORT", 5432),
+        "NAME": "kittygram_user",           # ← Точно такое же имя как в POSTGRES_DB
+        "USER": "kittygram_user",           # ← Точно такое же имя как в POSTGRES_USER
+        "PASSWORD": "kittygram_password",   # ← Точно такой же пароль
+        "HOST": "db",                       # ← Имя сервиса из docker-compose
+        "PORT": 5432,                       # ← Порт PostgreSQL
     }
 }
 
