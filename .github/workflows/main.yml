@@ -44,49 +44,50 @@ jobs:
         cd backend
         ruff check . --exit-zero
     
-    # Создаем тестовый .env файл
-    - name: Create test environment
+    # Создаем временный settings для тестов
+    - name: Create test settings
       run: |
-        cat > backend/.env.test << 'EOF'
-        SECRET_KEY=test-secret-key-for-ci-123
-        DEBUG=True
-        ALLOWED_HOSTS=localhost,127.0.0.1
+        cat > backend/test_settings.py << 'EOF'
+        from kittygram_backend.settings import *
         
-        DB_ENGINE=django.db.backends.postgresql
-        DB_NAME=kittygram_test
-        POSTGRES_USER=kittygram_user
-        POSTGRES_PASSWORD=kittygram_password
-        POSTGRES_DB=kittygram_test
-        DB_HOST=localhost
-        DB_PORT=5432
+        # Переопределяем настройки БД для тестов
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': 'kittygram_test',
+                'USER': 'kittygram_user',
+                'PASSWORD': 'kittygram_password',
+                'HOST': 'localhost',
+                'PORT': 5432,
+            }
+        }
+        
+        # Используем тестовую БД
+        TEST = {
+            'NAME': 'kittygram_test',
+        }
         EOF
     
-    # Даем время PostgreSQL запуститься
+    # Ждем PostgreSQL
     - name: Wait for PostgreSQL
       run: |
-        sleep 10
-        echo "PostgreSQL should be ready now"
+        echo "Waiting for PostgreSQL to be ready..."
+        for i in {1..30}; do
+          if nc -z localhost 5432; then
+            echo "PostgreSQL is ready!"
+            break
+          fi
+          echo "Waiting for PostgreSQL... ($i/30)"
+          sleep 2
+        done
     
-    # Запуск тестов с правильными переменными окружения
+    # Запуск тестов с тестовыми настройками
     - name: Run Django tests
-      env:
-        SECRET_KEY: test-secret-key-for-ci-123
-        DEBUG: True
-        ALLOWED_HOSTS: localhost,127.0.0.1
-        DB_ENGINE: django.db.backends.postgresql
-        DB_NAME: kittygram_test
-        POSTGRES_USER: kittygram_user
-        POSTGRES_PASSWORD: kittygram_password
-        POSTGRES_DB: kittygram_test
-        DB_HOST: localhost
-        DB_PORT: 5432
       run: |
         cd backend
         
-        # Применяем миграции для тестовой БД
-        export DJANGO_SETTINGS_MODULE=kittygram_backend.settings
-        python manage.py makemigrations --noinput || true
-        python manage.py migrate --noinput
+        # Устанавливаем переменную окружения для тестовых настроек
+        export DJANGO_SETTINGS_MODULE=test_settings
         
         # Запускаем тесты
         python -m pytest tests/ -v --tb=short
@@ -142,8 +143,7 @@ jobs:
     - name: Success message
       if: success()
       run: |
-        echo "✅ Kittygram CI/CD успешно завершен!"
-        echo "🧪 Тесты с PostgreSQL пройдены"
+        echo "🎉 Kittygram CI/CD успешно завершен!"
+        echo "✅ Тесты с PostgreSQL пройдены"
         echo "🐳 Образы загружены на Docker Hub"
-        echo "🔗 Docker Hub: https://hub.docker.com/u/${{ secrets.DOCKER_USERNAME }}"
         echo "🚀 Проект готов к деплою"
