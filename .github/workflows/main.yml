@@ -58,6 +58,7 @@ jobs:
     - name: Run frontend tests
       run: |
         cd frontend
+        npm i
         npm test -- --passWithNoTests --watchAll=false || echo "Тесты завершены"
     
     # 4. Сборка и загрузка Docker образов
