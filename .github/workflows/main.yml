@@ -39,7 +39,7 @@ jobs:
     - name: Install frontend dependencies
       run: |
         cd frontend
-        npm ci
+        npm i
     
     - name: Create missing CSS files for tests
       run: |
