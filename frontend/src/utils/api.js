@@ -1,128 +1,81 @@
-﻿const BASE_URL = "/api";
+﻿// Kittygram API module
 
-function request(url, options) {
-  return fetch(url, options).then(checkResponse);
-}
-
-function checkResponse(res) {
-  if (res.ok) {
-    return res.json();
+export const api = {
+  signIn(credentials) {
+    return fetch("/api/token/login/", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(credentials)
+    }).then(res => res.ok ? res.json() : Promise.reject(res));
   }
-  return Promise.reject(res.status);
-}
-
-export const register = (email, password) => {
-  return request(`${BASE_URL}/users/`, {
-    method: "POST",
-    headers: {
-      "Accept": "application/json",
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ email, password })
-  });
 };
 
-export const authorize = (email, password) => {
-  return request(`${BASE_URL}/jwt/create/`, {
+export const registerUser = (userData) => {
+  return fetch("/api/users/", {
     method: "POST",
-    headers: {
-      "Accept": "application/json",
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ email, password })
-  });
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(userData)
+  }).then(res => res.ok ? res.json() : Promise.reject(res));
+};
+
+export const logoutUser = () => {
+  localStorage.removeItem("token");
+  return Promise.resolve();
 };
 
 export const getUser = () => {
-  const token = localStorage.getItem("token");
-  return request(`${BASE_URL}/users/me/`, {
-    method: "GET",
-    headers: {
-      "Accept": "application/json",
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
-    }
-  });
+  const token = localStorage.getItem("auth_token");
+  if (!token) {
+    return Promise.reject("No token found");
+  }
+  return fetch("/api/users/me/", {
+    headers: {"Authorization": `Token ${token}`}
+  }).then(res => res.ok ? res.json() : Promise.reject(res));
 };
 
-export const sendCard = (card) => {
-  const token = localStorage.getItem("token");
-  return request(`${BASE_URL}/cards/`, {
+export const getCards = (token) => {
+  return fetch("/api/cats/", {
+    headers: {"Authorization": `Token ${token}`}
+  }).then(res => res.json());
+};
+
+export const getCard = (id, token) => {
+  return fetch(`/api/cats/${id}/`, {
+    headers: {"Authorization": `Token ${token}`}
+  }).then(res => res.json());
+};
+
+export const sendCard = (cardData, token) => {
+  return fetch("/api/cats/", {
     method: "POST",
     headers: {
-      "Accept": "application/json",
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
+      "Authorization": `Token ${token}`,
+      "Content-Type": "application/json"
     },
-    body: JSON.stringify(card)
-  });
+    body: JSON.stringify(cardData)
+  }).then(res => res.json());
 };
 
-export const getCards = () => {
-  return request(`${BASE_URL}/cards/`, {
-    method: "GET",
-    headers: {
-      "Accept": "application/json",
-      "Content-Type": "application/json"
-    }
-  });
-};
-
-export const getCardById = (id) => {
-  return request(`${BASE_URL}/cards/${id}/`, {
-    method: "GET",
-    headers: {
-      "Accept": "application/json",
-      "Content-Type": "application/json"
-    }
-  });
-};
-
-export const updateCard = (id, card) => {
-  const token = localStorage.getItem("token");
-  return request(`${BASE_URL}/cards/${id}/`, {
+export const updateCard = (id, cardData, token) => {
+  return fetch(`/api/cats/${id}/`, {
     method: "PATCH",
     headers: {
-      "Accept": "application/json",
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
+      "Authorization": `Token ${token}`,
+      "Content-Type": "application/json"
     },
-    body: JSON.stringify(card)
-  });
+    body: JSON.stringify(cardData)
+  }).then(res => res.json());
 };
 
-export const deleteCard = (id) => {
-  const token = localStorage.getItem("token");
-  return request(`${BASE_URL}/cards/${id}/`, {
+export const deleteCard = (id, token) => {
+  return fetch(`/api/cats/${id}/`, {
     method: "DELETE",
-    headers: {
-      "Accept": "application/json",
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
-    }
+    headers: {"Authorization": `Token ${token}`}
   });
 };
 
-export const likeCard = (id) => {
-  const token = localStorage.getItem("token");
-  return request(`${BASE_URL}/cards/${id}/likes/`, {
-    method: "PUT",
-    headers: {
-      "Accept": "application/json",
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
-    }
-  });
-};
-
-export const unlikeCard = (id) => {
-  const token = localStorage.getItem("token");
-  return request(`${BASE_URL}/cards/${id}/likes/`, {
-    method: "DELETE",
-    headers: {
-      "Accept": "application/json",
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
-    }
-  });
+export const getAchievements = (token) => {
+  return fetch("/api/achievements/", {
+    headers: {"Authorization": `Token ${token}`}
+  }).then(res => res.json());
 };
