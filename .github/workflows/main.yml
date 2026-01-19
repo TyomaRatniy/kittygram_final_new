@@ -5,14 +5,29 @@ on:
     branches: [ main ]
 
 jobs:
-  build-and-deploy:
+  test-and-deploy:
     runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_USER: kittygram_user
+          POSTGRES_PASSWORD: kittygram_password
+          POSTGRES_DB: kittygram_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
     
-    # Бэкенд - только линтинг
+    # Настройка Python
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
@@ -22,20 +37,46 @@ jobs:
       run: |
         cd backend
         pip install -r requirements.txt
-        pip install ruff
+        pip install ruff pytest pytest-django
     
     - name: Run ruff linter
       run: |
         cd backend
         ruff check . --exit-zero
     
-    - name: Run simple tests (игнорируем ошибки БД)
+    # Настройка переменных окружения для тестов
+    - name: Create test environment file
+      run: |
+        cat > backend/.env.test << 'EOF'
+        SECRET_KEY=test-secret-key-for-ci-123
+        DEBUG=True
+        ALLOWED_HOSTS=localhost,127.0.0.1
+        
+        DB_ENGINE=django.db.backends.postgresql
+        DB_NAME=kittygram_test
+        POSTGRES_USER=kittygram_user
+        POSTGRES_PASSWORD=kittygram_password
+        POSTGRES_DB=kittygram_test
+        DB_HOST=localhost
+        DB_PORT=5432
+        EOF
+    
+    # Запуск тестов
+    - name: Run Django tests
+      env:
+        DJANGO_SETTINGS_MODULE: kittygram_backend.settings
       run: |
         cd backend
-        # Запускаем тесты, но не падаем если есть ошибки БД
-        python -m pytest tests/ -v --tb=short || echo "Tests completed with some warnings"
+        # Экспортируем переменные из файла
+        export $(grep -v '^#' .env.test | xargs)
+        
+        # Даем время PostgreSQL запуститься
+        sleep 5
+        
+        # Запускаем тесты
+        python -m pytest tests/ -v --tb=short
     
-    # Фронтенд
+    # Тестирование фронтенда
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
@@ -46,12 +87,12 @@ jobs:
         cd frontend
         npm ci
     
-    - name: Run frontend build
+    - name: Run frontend tests
       run: |
         cd frontend
-        npm run build
+        npm test -- --passWithNoTests
     
-    # Сборка Docker образов
+    # Сборка и загрузка Docker образов
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
     
@@ -61,31 +102,32 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
     
-    - name: Build and push backend
+    - name: Build and push backend image
       uses: docker/build-push-action@v4
       with:
         context: ./backend
         push: true
         tags: ${{ secrets.DOCKER_USERNAME }}/kittygram_backend:latest
     
-    - name: Build and push frontend
+    - name: Build and push frontend image
       uses: docker/build-push-action@v4
       with:
         context: ./frontend
         push: true
         tags: ${{ secrets.DOCKER_USERNAME }}/kittygram_frontend:latest
     
-    - name: Build and push gateway
+    - name: Build and push gateway image
       uses: docker/build-push-action@v4
       with:
         context: ./nginx
         push: true
         tags: ${{ secrets.DOCKER_USERNAME }}/kittygram_gateway:latest
     
-    # Сообщение об успехе
+    # Уведомление
     - name: Success message
       if: success()
       run: |
-        echo "🎉 Kittygram CI/CD успешно завершен!"
-        echo "✅ Образы загружены на Docker Hub"
-        echo "📦 Готово к деплою"
+        echo "✅ Kittygram CI/CD успешно завершен!"
+        echo "🧪 Тесты с PostgreSQL пройдены"
+        echo "🐳 Образы загружены на Docker Hub"
+        echo "🚀 Проект готов к деплою"
